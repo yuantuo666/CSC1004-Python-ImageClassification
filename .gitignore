@@ -4,3 +4,6 @@
 *.pyc
 __pycache__/
 .DS_Store
+
+test.py
+log_*.txt
