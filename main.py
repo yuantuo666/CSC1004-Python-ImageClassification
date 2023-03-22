@@ -233,26 +233,8 @@ def plot_mean():
     Plot the mean results after three runs.
     :return:
     """
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    """read the recorded results"""
-    training_loss = np.load('train_loss.npy')
-    testing_accuracies = np.load('test_acc.npy')
-    testing_loss = np.load('test_loss.npy')
-
-    """plot the mean results"""
-    plt.figure()
-    plt.plot(np.mean(training_loss, axis=0), label='training loss')
-    # Q: it is the mean of the training loss of the three runs?
-    # A: yes.
-    # Q: what the format of the array?
-    # A: it is a numpy array. The first dimension is the number of runs. The second dimension is the number of epochs.
-    #    The value of the array is the training loss of the model.
-    plt.plot(np.mean(testing_accuracies, axis=0), label='testing accuracy')
-    plt.plot(np.mean(testing_loss, axis=0), label='testing loss')
-    plt.legend()  # show the label
-    plt.show()
+    # read the recorded results from three runs
+    # and plot the mean results
 
 
 if __name__ == '__main__':
