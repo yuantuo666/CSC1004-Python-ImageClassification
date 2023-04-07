@@ -68,23 +68,25 @@ def train(args, model, device, train_loader, optimizer, epoch):
 
         # record training loss and accuracy
         test_loss += loss.item()  # sum up batch loss
-        
+
         t_correct = output.argmax(dim=1).eq(target).sum().item()
         correct += t_correct
 
         print('epoch: {}, batch: {}, loss: {:.6f}, acuuracy: {:.6f}'.format(
             epoch, batch_idx, loss.item(), t_correct/len(target)))
         # record the training loss to a file
-        # with open('train_loss.txt', 'a') as f:
-        #     f.write('epoch: {}, batch: {}, loss: {:.6f}\n'.format(
-        #         epoch, (batch_idx+1), t_loss, t_accracy))
+        with open('train_loss_{}.txt'.format(args.seed), 'a') as f:
+            f.write('epoch: {}, batch: {}, loss: {:.6f}\n'.format(
+                epoch, (batch_idx+1), loss.item(), t_correct/len(target)))
 
-    training_acc = correct / len(train_loader.dataset) # calculate the average accuracy
-    training_loss = test_loss / len(train_loader.dataset) # calculate the average loss
+    # calculate the average accuracy
+    training_acc = correct / len(train_loader.dataset)
+    # calculate the average loss
+    training_loss = test_loss / len(train_loader.dataset)
     return training_acc, training_loss
 
 
-def test(model, device, test_loader, epoch):
+def test(args, model, device, test_loader, epoch):
     """
     test the model and return the tesing accuracy
     The test function should use the testing data (consisted of only images).
@@ -110,12 +112,14 @@ def test(model, device, test_loader, epoch):
             # record the testing loss and accuracy to a file
             msg = 'epoch: {}, loss: {:.6f}, acuuracy: {:.6f}\n'.format(
                 epoch, loss.item(), t_correct/len(target))
-            with open('test_loss_acc.txt', 'a') as f:
+            with open('test_loss_acc_{}.txt'.format(args.seed), 'a') as f:
                 f.write(msg)
             print(msg, end='')
 
-    testing_acc = correct / len(test_loader.dataset) # calculate the average accuracy
-    testing_loss = test_loss / len(test_loader.dataset) # calculate the average loss
+    # calculate the average accuracy
+    testing_acc = correct / len(test_loader.dataset)
+    # calculate the average loss
+    testing_loss = test_loss / len(test_loader.dataset)
     return testing_acc, testing_loss
 
 
@@ -205,7 +209,7 @@ def run(config):
             epoch, train_loss, train_acc))
 
         """testing"""
-        test_acc, test_loss = test(model, device, test_loader, epoch)
+        test_acc, test_loss = test(config, model, device, test_loader, epoch)
         # record testing loss and accuracy
         testing_accuracies.append(test_acc)
         testing_loss.append(test_loss)
@@ -224,10 +228,10 @@ def run(config):
     plot(epoches, testing_loss, 'testing loss', 'epoches', 'loss')
 
     if config.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+        torch.save(model.state_dict(), "mnist_cnn_{}.pt".format(config.seed))
 
 
-def plot_mean():
+def plot_mean(seeds):
     """
     Read the recorded results.
     Plot the mean results after three runs.
@@ -235,9 +239,63 @@ def plot_mean():
     """
     # read the recorded results from three runs
     # and plot the mean results
+    # data format:
+    # train_loss.txt: epoch: {}, batch: {}, loss: {:.6f}\n
+    # test_loss_acc.txt: epoch: {}, loss: {:.6f}, acuuracy: {:.6f}\n
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # read the training loss
+    train_loss = [[] for i in range(len(seeds))]
+    for i in range(len(seeds)):
+        with open('train_loss_{}.txt'.format(seeds[i]), 'r') as f:
+            for line in f.readlines():
+                data = line.split(',')
+                train_loss[i].append(float(data[-1].split(':')[-1].strip()))
+    # calculate the mean loss
+    train_loss = np.mean(train_loss, axis=0)
+
+    # read the testing loss and accuracy
+    test_loss = [[] for i in range(len(seeds))]
+    test_acc = [[] for i in range(len(seeds))]
+    for i in range(len(seeds)):
+        with open('test_loss_acc_{}.txt'.format(seeds[i]), 'r') as f:
+            for line in f.readlines():
+                data = line.split(',')
+                test_loss[i].append(float(data[-2].split(':')[-1].strip()))
+                test_acc[i].append(float(data[-1].split(':')[-1].strip()))
+    # calculate the mean loss and accuracy
+    test_loss = np.mean(test_loss, axis=0)
+    test_acc = np.mean(test_acc, axis=0)
+
+    # plot the mean results
+    plt.figure()
+    plt.title('training loss')
+    plt.plot(np.arange(1, len(train_loss)+1), train_loss)
+    plt.xlabel('epoches')
+    plt.ylabel('loss')
+    plt.show()
+
+    plt.figure()
+    plt.title('testing loss')
+    plt.plot(np.arange(1, len(test_loss)+1), test_loss)
+    plt.xlabel('epoches')
+    plt.ylabel('loss')
+    plt.show()
+
+    plt.figure()
+    plt.title('testing accuracy')
+    plt.plot(np.arange(1, len(test_acc)+1), test_acc)
+    plt.xlabel('epoches')
+    plt.ylabel('accuracy')
+    plt.show()
+
 
 
 if __name__ == '__main__':
+    import multiprocessing
+    import copy
     # arg = read_args() # load the arguments
     arg = argparse.Namespace()
     arg.config_file = 'config/minist.yaml'
@@ -245,8 +303,15 @@ if __name__ == '__main__':
     """toad training settings"""
     config = load_config(arg)
 
+    seeds = [123, 321, 666]
+    configs = []
+    for seed in seeds:
+        config_ = copy.deepcopy(config)
+        config_.seed = seed
+        configs.append(config_)
+
     """train model and record results"""
-    run(config)  # train model and record results for one run
+    multiprocessing.Pool(len(seeds)).map(run, configs)
 
     """plot the mean results"""
-    # plot_mean()  # plot the mean results for three runs
+    plot_mean(seeds)  # plot the mean results for three runs

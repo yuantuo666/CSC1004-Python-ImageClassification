@@ -7,3 +7,5 @@ __pycache__/
 
 test.py
 log_*.txt
+
+*loss*.txt

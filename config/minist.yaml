@@ -1,9 +1,9 @@
 batch_size: 64  #  input batch size for training
 test_batch_size: 1000  # input batch size for testing
-epochs: 15  # number of epochs to train
+epochs: 1  # number of epochs to train
 lr: 0.01  # learning rate
 gamma: 0.7  # learning rate step gamma
-no_cuda: False  # disables CUDA training
+no_cuda: True  # disables CUDA training
 no_mps: True   # disables macOS GPU training
 dry_run: False # quickly check a single pass
 seed: 1  # random seed
