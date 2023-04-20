@@ -75,8 +75,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
         print('epoch: {}, batch: {}, loss: {:.6f}, acuuracy: {:.6f}'.format(
             epoch, batch_idx, loss.item(), t_correct/len(target)))
         # record the training loss to a file
-        with open('train_loss_{}.txt'.format(args.seed), 'a') as f:
-            f.write('epoch: {}, batch: {}, loss: {:.6f}\n'.format(
+        with open('train_loss_acc_{}.txt'.format(args.seed), 'a') as f:
+            f.write('epoch: {}, batch: {}, loss: {:.6f}, acuuracy: {:.6f}\n'.format(
                 epoch, (batch_idx+1), loss.item(), t_correct/len(target)))
 
     # calculate the average accuracy
@@ -214,24 +214,25 @@ def run(config):
         testing_accuracies.append(test_acc)
         testing_loss.append(test_loss)
 
-        print('[TEST] loss: {:.6f}, acuuracy: {:.6f}\n'.format(
+        print('[TEST] loss: {:.6f}, acuuracy: {:.6f}'.format(
             test_loss, test_acc))
 
         scheduler.step()  # adjust the learning rate of the optimizer
         epoches.append(epoch)
 
     """plotting training performance with the records"""
-    plot(epoches, training_loss, 'training loss', 'epoches', 'loss')
+    plot(epoches, training_accuracies, 'training accuracy_{}'.format(config.seed) , 'epoches', 'accuracy')
+    plot(epoches, training_loss, 'training loss_{}'.format(config.seed), 'epoches', 'loss')
 
     """plotting testing performance with the records"""
-    plot(epoches, testing_accuracies, 'testing accuracy', 'epoches', 'accuracy')
-    plot(epoches, testing_loss, 'testing loss', 'epoches', 'loss')
+    plot(epoches, testing_accuracies, 'testing accuracy_{}'.format(config.seed), 'epoches', 'accuracy')
+    plot(epoches, testing_loss, 'testing loss_{}'.format(config.seed), 'epoches', 'loss')
 
     if config.save_model:
         torch.save(model.state_dict(), "mnist_cnn_{}.pt".format(config.seed))
 
 
-def plot_mean(seeds):
+def plot_mean(config, seeds):
     """
     Read the recorded results.
     Plot the mean results after three runs.
@@ -240,70 +241,86 @@ def plot_mean(seeds):
     # read the recorded results from three runs
     # and plot the mean results
     # data format:
-    # train_loss.txt: epoch: {}, batch: {}, loss: {:.6f}\n
+    # train_loss.txt: epoch: {}, batch: {}, loss: {:.6f}, acuuracy: {:.6f}\n
     # test_loss_acc.txt: epoch: {}, loss: {:.6f}, acuuracy: {:.6f}\n
 
-    import matplotlib.pyplot as plt
     import numpy as np
 
     # read the training loss
     train_loss = [[] for i in range(len(seeds))]
+    train_acc = [[] for i in range(len(seeds))]
     for i in range(len(seeds)):
-        with open('train_loss_{}.txt'.format(seeds[i]), 'r') as f:
+        temp_loss = []
+        temp_acc = []
+        epoch = 1
+        with open('train_loss_acc_{}.txt'.format(seeds[i]), 'r') as f:
             for line in f.readlines():
                 data = line.split(',')
-                train_loss[i].append(float(data[-1].split(':')[-1].strip()))
+                current_epoch = int(data[0].split(':')[-1].strip())
+                if current_epoch != epoch:
+                    epoch += 1
+                    # calculate the mean loss and accuracy for each epoch
+                    train_loss[i].append(np.mean(temp_loss))
+                    train_acc[i].append(np.mean(temp_acc))
+                    temp_loss = []
+                    temp_acc = []
+                else:
+                    temp_loss.append(float(data[-2].split(':')[-1].strip()))
+                    temp_acc.append(float(data[-1].split(':')[-1].strip()))
+            train_loss[i].append(np.mean(temp_loss))
+            train_acc[i].append(np.mean(temp_acc))
     # calculate the mean loss
     train_loss = np.mean(train_loss, axis=0)
+    train_acc = np.mean(train_acc, axis=0)
 
     # read the testing loss and accuracy
     test_loss = [[] for i in range(len(seeds))]
     test_acc = [[] for i in range(len(seeds))]
     for i in range(len(seeds)):
+        temp_loss = []
+        temp_acc = []
+        epoch = 1
         with open('test_loss_acc_{}.txt'.format(seeds[i]), 'r') as f:
             for line in f.readlines():
                 data = line.split(',')
-                test_loss[i].append(float(data[-2].split(':')[-1].strip()))
-                test_acc[i].append(float(data[-1].split(':')[-1].strip()))
+                current_epoch = int(data[0].split(':')[-1].strip())
+                if current_epoch != epoch:
+                    epoch += 1
+                    # calculate the mean loss and accuracy for each epoch
+                    test_loss[i].append(np.mean(temp_loss))
+                    test_acc[i].append(np.mean(temp_acc))
+                    temp_loss = []
+                    temp_acc = []
+                else:
+                    temp_loss.append(float(data[-2].split(':')[-1].strip()))
+                    temp_acc.append(float(data[-1].split(':')[-1].strip()))
+            test_loss[i].append(np.mean(temp_loss))
+            test_acc[i].append(np.mean(temp_acc))
     # calculate the mean loss and accuracy
     test_loss = np.mean(test_loss, axis=0)
     test_acc = np.mean(test_acc, axis=0)
 
     # plot the mean results
-    plt.figure()
-    plt.title('training loss')
-    plt.plot(np.arange(1, len(train_loss)+1), train_loss)
-    plt.xlabel('epoches')
-    plt.ylabel('loss')
-    plt.show()
-
-    plt.figure()
-    plt.title('testing loss')
-    plt.plot(np.arange(1, len(test_loss)+1), test_loss)
-    plt.xlabel('epoches')
-    plt.ylabel('loss')
-    plt.show()
-
-    plt.figure()
-    plt.title('testing accuracy')
-    plt.plot(np.arange(1, len(test_acc)+1), test_acc)
-    plt.xlabel('epoches')
-    plt.ylabel('accuracy')
-    plt.show()
-
+    plot(np.arange(1, len(train_loss)+1), train_loss, 'training loss_mean', 'epoches', 'loss')
+    plot(np.arange(1, len(train_acc)+1), train_acc, 'training accuracy_mean', 'epoches', 'accuracy')
+    plot(np.arange(1, len(test_loss)+1), test_loss, 'testing loss_mean', 'epoches', 'loss')
+    plot(np.arange(1, len(test_acc)+1), test_acc, 'testing accuracy_mean', 'epoches', 'accuracy')
 
 
 if __name__ == '__main__':
     import multiprocessing
     import copy
-    # arg = read_args() # load the arguments
-    arg = argparse.Namespace()
-    arg.config_file = 'config/minist.yaml'
+    import os
+    if os.path.exists('config/minist.yaml'):
+        arg = argparse.Namespace()
+        arg.config_file = 'config/minist.yaml'
+    else:
+        arg = read_args()
 
     """toad training settings"""
     config = load_config(arg)
 
-    seeds = [123, 321, 666]
+    seeds = config.seeds  # random seeds
     configs = []
     for seed in seeds:
         config_ = copy.deepcopy(config)
@@ -311,7 +328,13 @@ if __name__ == '__main__':
         configs.append(config_)
 
     """train model and record results"""
-    multiprocessing.Pool(len(seeds)).map(run, configs)
+    process_list = []
+    for i in range(len(seeds)):
+        process_list.append(multiprocessing.Process(target=run, args=(configs[i],)))
+    for process in process_list:
+        process.start()
+    for process in process_list:
+        process.join()
 
     """plot the mean results"""
-    plot_mean(seeds)  # plot the mean results for three runs
+    plot_mean(config, seeds)  # plot the mean results for three runs
